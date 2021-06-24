@@ -4,7 +4,7 @@ import platform
 import subprocess
 import shutil
 import hashlib
-
+from tqdm import tqdm
 
 import numpy as np
 from imageio import imread
@@ -37,6 +37,41 @@ VAL_SUBSET = "val"
 TEST_SUBSET = "test"
 """Loads the 'test' subset of the data."""
 
+
+# add custom_dataset
+# add noise specially
+class custDataset(TorchDataset):
+    def __init__(self, data_dir, mode=BAYER_MODE) -> None:
+        super().__init__()
+        if mode not in [BAYER_MODE, XTRANS_MODE]:
+            raise ValueError("Dataset mode should be '%s' or '%s', got"
+                             " %s" % (BAYER_MODE, XTRANS_MODE, mode))
+        
+        self.mode = mode
+        self.files = []
+        for root, _, files in os.walk(data_dir):
+            for name in tqdm(files):
+                self.files.append(os.path.join(root, name))
+    def __len__(self):
+        return len(self.files)
+
+    def __getitem__(self, idx):
+        """Fetches a mosaic / demosaicked pair of images.
+
+        Returns
+            mosaic(np.array): with size [3, h, w] the mosaic data with separated color channels.
+            img(np.array): with size [3, h, w] the groundtruth image.
+        """
+        fname = self.files[idx]
+        img = np.array(imread(fname)).astype(np.float32) / (2**8-1)
+        img = np.transpose(img, [2, 0, 1])
+
+        if self.mode == BAYER_MODE:
+            mosaic = bayer(img)
+        else:
+            mosaic = xtrans(img)
+
+        return mosaic, img
 
 class Dataset(TorchDataset):
     """Dataset of challenging image patches for demosaicking.

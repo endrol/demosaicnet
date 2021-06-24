@@ -10,6 +10,7 @@ import ttools
 from ttools.modules.image_operators import crop_like
 
 import demosaicnet
+from custDataset import custDataset
 
 
 LOG = ttools.get_logger(__name__)
@@ -33,13 +34,13 @@ class DemosaicnetInterface(ttools.ModelInterface):
         self.loss = th.nn.MSELoss()
         self.psnr = ttools.modules.losses.PSNR()
 
-    def forward(self, batch):
+    def __forward__(self, batch):
         mosaic = batch[0]
         mosaic = mosaic.to(self.device)
         output = self.model(mosaic)
         return output
 
-    def backward(self, batch, fwd_output):
+    def __backward__(self, batch, fwd_output):
         target = batch[1].to(self.device)
 
         # remove boundaries to match output size
@@ -56,10 +57,10 @@ class DemosaicnetInterface(ttools.ModelInterface):
 
         return {"loss": loss.item(), "psnr": psnr.item()}
 
-    def init_validation(self):
+    def __init_validation__(self):
         return {"count": 0, "psnr": 0}
 
-    def update_validation(self, batch, fwd_output, running_data):
+    def __update_validation__(self, batch, fwd_output, running_data):
         target = batch[1].to(self.device)
 
         # remove boundaries to match output size
@@ -74,7 +75,7 @@ class DemosaicnetInterface(ttools.ModelInterface):
             "count": running_data["count"] + n
         }
 
-    def finalize_validation(self, running_data):
+    def __finalize_validation__(self, running_data):
         return {
             "psnr": running_data["psnr"] / running_data["count"]
         }
@@ -109,9 +110,12 @@ def main(args):
             "mode": args.mode,
         }
 
-    data = demosaicnet.Dataset(args.data, download=False,
-                               mode=meta["mode"],
-                               subset=demosaicnet.TRAIN_SUBSET)
+    # data = demosaicnet.Dataset(args.data, download=False,
+    #                            mode=meta["mode"],
+    #                            subset=demosaicnet.TRAIN_SUBSET)
+
+    data = custDataset(args.data, mode=meta["mode"])
+
     dataloader = DataLoader(
         data, batch_size=args.bs, num_workers=args.num_worker_threads,
         pin_memory=True, shuffle=True)

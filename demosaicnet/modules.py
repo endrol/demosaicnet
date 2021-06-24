@@ -1,6 +1,7 @@
 """Models for [Gharbi2016] Deep Joint demosaicking and denoising."""
 import os
 from collections import OrderedDict
+from numpy.core.fromnumeric import shape
 from pkg_resources import resource_filename
 
 import numpy as np
@@ -14,7 +15,7 @@ __all__ = ["BayerDemosaick", "XTransDemosaick"]
 _BAYER_WEIGHTS = resource_filename(__name__, 'data/bayer.pth')
 _XTRANS_WEIGHTS = resource_filename(__name__, 'data/xtrans.pth')
 
-
+# add noise module
 class BayerDemosaick(nn.Module):
   """Released version of the network, best quality.
 
@@ -41,7 +42,7 @@ class BayerDemosaick(nn.Module):
       n_out = width
       n_in = width
       if i == 0:
-        n_in = 4
+        n_in = 5
       if i == depth-1:
         n_out = 2*width
       layers["conv{}".format(i+1)] = nn.Conv2d(n_in, n_out, 3, padding=pad)
@@ -73,6 +74,17 @@ class BayerDemosaick(nn.Module):
     Returns:
       th.Tensor: the demosaicked image
     """
+    ## add noise level and noisy
+    # bayer first and then noise
+    # mosaic dimesion [batch_size, c, h, w]
+    shape_mosaic = mosaic.shape
+    # sigma
+    noise_levels = np.random.uniform(0, 0.1**0.6, shape_mosaic[0])
+    noise = th.randn(shape_mosaic) * noise_levels[:, np.newaxis]
+    mosaic = mosaic + noise
+
+    sigma_map = 
+
 
     # 1/4 resolution features
     features = self.main_processor(mosaic)
