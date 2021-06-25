@@ -11,3 +11,4 @@ custom*
 compare.csv
 scripts/hello.csv
 scripts/__pycache__/custDataset.cpython-37.pyc
+log*

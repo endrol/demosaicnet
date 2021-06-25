@@ -24,7 +24,7 @@ class BayerDemosaick(nn.Module):
   other. This is not key to performance and can be ignored when training new
   models from scratch.
   """
-  def __init__(self, depth=15, width=64, pretrained=True, pad=False):
+  def __init__(self, depth=15, width=64, pad=False):
     super(BayerDemosaick, self).__init__()
 
     self.depth = depth
@@ -34,10 +34,10 @@ class BayerDemosaick(nn.Module):
       pad = 1
     else:
       pad = 0
+    # downsample mosaic input and get 4-channel
+    self.downsample_mosaic = nn.Conv2d(3, 4, 2, stride=2)
 
-    layers = OrderedDict([
-        ("pack_mosaic", nn.Conv2d(3, 4, 2, stride=2)),  # Downsample 2x2 to re-establish translation invariance
-      ])
+    layers = OrderedDict([])
     for i in range(depth):
       n_out = width
       n_in = width
@@ -59,11 +59,11 @@ class BayerDemosaick(nn.Module):
       ]))
 
     # Load weights
-    if pretrained:
-      assert depth == 15, "pretrained bayer model has depth=15."
-      assert width == 64, "pretrained bayer model has width=64."
-      state_dict = th.load(_BAYER_WEIGHTS)
-      self.load_state_dict(state_dict)
+    # if pretrained:
+    #   assert depth == 15, "pretrained bayer model has depth=15."
+    #   assert width == 64, "pretrained bayer model has width=64."
+    #   state_dict = th.load(_BAYER_WEIGHTS)
+    #   self.load_state_dict(state_dict)
 
   def forward(self, mosaic):
     """Demosaicks a Bayer image.
@@ -81,13 +81,17 @@ class BayerDemosaick(nn.Module):
     # sigma
     noise_levels = np.random.uniform(0, 0.1**0.6, shape_mosaic[0])
     noise = th.randn(shape_mosaic) * noise_levels[:, np.newaxis]
-    mosaic = mosaic + noise
+    noisy = mosaic + noise
 
-    sigma_map = 
-
+    mosaic_downsample = self.downsample_mosaic(noisy)
+    sigma_layer = th.empty(mosaic_downsample.shape)
+    for dim in noise.shape[0]:
+      sigma_layer[dim] = noise_levels[dim]
+    
+    mosaic_pack = th.cat((mosaic_downsample, sigma_layer), 1)
 
     # 1/4 resolution features
-    features = self.main_processor(mosaic)
+    features = self.main_processor(mosaic_pack)
     filters, masks = features[:, 0:self.width], features[:, self.width:2*self.width]
     filtered = filters * masks
     residual = self.residual_predictor(filtered)
